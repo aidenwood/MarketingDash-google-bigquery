@@ -1,5 +1,6 @@
 ---
 import Layout from '@/layouts/Layout.astro';
+import FacebookCSVUpload from '@/components/FacebookCSVUpload.tsx';
 ---
 
 <Layout title="Upload Facebook Data - Marketing Dashboard">
@@ -13,25 +14,6 @@ import Layout from '@/layouts/Layout.astro';
     </div>
 
     <!-- Facebook CSV Upload Component -->
-    <div id="facebook-upload-root"></div>
+    <FacebookCSVUpload client:load />
   </div>
 </Layout>
-
-<script>
-  import { FacebookCSVUpload } from '@/components/FacebookCSVUpload.tsx';
-  import React from 'react';
-  import { createRoot } from 'react-dom/client';
-
-  // Mount React component
-  const container = document.getElementById('facebook-upload-root');
-  if (container) {
-    const root = createRoot(container);
-    root.render(React.createElement(FacebookCSVUpload, {
-      onDataParsed: (data) => {
-        console.log('Facebook CSV data parsed:', data);
-        // You can add additional handling here, like saving to localStorage
-        // or sending to an API endpoint
-      }
-    }));
-  }
-</script>

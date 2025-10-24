@@ -277,3 +277,5 @@ export function FacebookCSVUpload({ onDataParsed }: FacebookCSVUploadProps) {
     </div>
   )
 }
+
+export default FacebookCSVUpload

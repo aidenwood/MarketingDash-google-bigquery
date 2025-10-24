@@ -201,3 +201,5 @@ export function CPAAreaChart({
     </Card>
   )
 }
+
+export default CPAAreaChart
