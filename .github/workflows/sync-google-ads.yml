@@ -1,0 +1,98 @@
+name: Sync Google Ads Data
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC (after Google Ads data is updated)
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual triggering
+    inputs:
+      date_range:
+        description: 'Date range for data sync (default: yesterday)'
+        required: false
+        default: 'yesterday'
+      dry_run:
+        description: 'Perform dry run (no data upload)'
+        type: boolean
+        required: false
+        default: false
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  sync-google-ads:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci --only=production
+        
+      - name: Validate Google Ads credentials
+        env:
+          GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
+          GOOGLE_ADS_CLIENT_ID: ${{ secrets.GOOGLE_ADS_CLIENT_ID }}
+          GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
+          GOOGLE_ADS_REFRESH_TOKEN: ${{ secrets.GOOGLE_ADS_REFRESH_TOKEN }}
+          GOOGLE_ADS_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_CUSTOMER_ID }}
+        run: |
+          if [[ -z "$GOOGLE_ADS_DEVELOPER_TOKEN" ]]; then
+            echo "Error: GOOGLE_ADS_DEVELOPER_TOKEN is not set"
+            exit 1
+          fi
+          echo "✅ Google Ads credentials validated"
+          
+      - name: Sync Google Ads data
+        env:
+          GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
+          GOOGLE_ADS_CLIENT_ID: ${{ secrets.GOOGLE_ADS_CLIENT_ID }}
+          GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
+          GOOGLE_ADS_REFRESH_TOKEN: ${{ secrets.GOOGLE_ADS_REFRESH_TOKEN }}
+          GOOGLE_ADS_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_CUSTOMER_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          DATE_RANGE: ${{ github.event.inputs.date_range || 'yesterday' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: |
+          echo "🔄 Starting Google Ads data sync..."
+          echo "Date range: $DATE_RANGE"
+          echo "Dry run: $DRY_RUN"
+          
+          # Run the sync script
+          node scripts/sync-google-ads.js
+          
+      - name: Upload sync results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: google-ads-sync-results-${{ github.run_number }}
+          path: |
+            logs/
+            data/google-ads-*.json
+          retention-days: 7
+          
+      - name: Notify on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [[ -n "$SLACK_WEBHOOK_URL" ]]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data '{"text":"🚨 Google Ads sync failed in workflow run #${{ github.run_number }}"}' \
+              $SLACK_WEBHOOK_URL
+          fi
+          
+      - name: Update dashboard data
+        if: success() && github.event.inputs.dry_run != 'true'
+        run: |
+          echo "✅ Google Ads sync completed successfully"
+          echo "📊 Dashboard data updated"

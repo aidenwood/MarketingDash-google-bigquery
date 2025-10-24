@@ -1,0 +1,90 @@
+---
+export interface Props {
+  type: 'critical' | 'warning' | 'info' | 'success';
+  title: string;
+  message: string;
+  dismissible?: boolean;
+}
+
+const { type, title, message, dismissible = true } = Astro.props;
+
+function getAlertStyles(alertType: string): string {
+  switch (alertType) {
+    case 'critical':
+      return 'bg-danger-50 border-danger-200 text-danger-800';
+    case 'warning':
+      return 'bg-warning-50 border-warning-200 text-warning-800';
+    case 'success':
+      return 'bg-success-50 border-success-200 text-success-800';
+    default:
+      return 'bg-primary-50 border-primary-200 text-primary-800';
+  }
+}
+
+function getIconForType(alertType: string): string {
+  switch (alertType) {
+    case 'critical':
+      return '⚠️';
+    case 'warning':
+      return '⚡';
+    case 'success':
+      return '✅';
+    default:
+      return 'ℹ️';
+  }
+}
+---
+
+<div class={`rounded-lg border p-4 ${getAlertStyles(type)} animate-fade-in`} role="alert">
+  <div class="flex items-start">
+    <div class="flex-shrink-0">
+      <span class="text-lg">{getIconForType(type)}</span>
+    </div>
+    
+    <div class="ml-3 flex-1">
+      <h3 class="text-sm font-medium mb-1">
+        {title}
+      </h3>
+      <div class="text-sm opacity-90">
+        {message}
+      </div>
+    </div>
+    
+    {dismissible && (
+      <div class="ml-auto pl-3">
+        <button
+          type="button"
+          class="inline-flex rounded-md p-1.5 hover:bg-black hover:bg-opacity-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent transition-colors dismiss-alert"
+          aria-label="Dismiss alert"
+        >
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+    )}
+  </div>
+</div>
+
+{dismissible && (
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const dismissButtons = document.querySelectorAll('.dismiss-alert');
+      
+      dismissButtons.forEach(button => {
+        button.addEventListener('click', function() {
+          const alert = this.closest('[role="alert"]');
+          if (alert) {
+            alert.style.transition = 'all 0.3s ease-out';
+            alert.style.transform = 'translateX(100%)';
+            alert.style.opacity = '0';
+            
+            setTimeout(() => {
+              alert.remove();
+            }, 300);
+          }
+        });
+      });
+    });
+  </script>
+)}

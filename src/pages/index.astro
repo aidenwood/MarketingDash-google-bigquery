@@ -1,0 +1,342 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import MetricsCard from '@/components/MetricsCard.astro';
+import AlertBanner from '@/components/AlertBanner.astro';
+import AdSetTable from '@/components/AdSetTable.astro';
+import type { AdSetPerformance, DashboardMetrics } from '@/types';
+import { validateDashboardData } from '@/utils/dataValidation';
+import fs from 'fs/promises';
+import path from 'path';
+
+// Load real data from files - NEVER use mock data
+let realAdSets: AdSetPerformance[] = [];
+let realMetrics: DashboardMetrics | null = null;
+let dataErrors: string[] = [];
+let dataWarnings: string[] = [];
+
+try {
+  // Try to load Google Ads data
+  const googleDataPath = path.join(process.cwd(), 'data', 'google-ads-adgroups.json');
+  try {
+    const googleData = await fs.readFile(googleDataPath, 'utf-8');
+    const parsedGoogleData = JSON.parse(googleData);
+    
+    if (Array.isArray(parsedGoogleData)) {
+      realAdSets.push(...parsedGoogleData);
+    }
+  } catch (error) {
+    dataWarnings.push('Google Ads data not available - run sync or check API connection');
+  }
+
+  // Try to load Facebook data
+  const facebookDataPath = path.join(process.cwd(), 'data', 'facebook-adsets.json');
+  try {
+    const facebookData = await fs.readFile(facebookDataPath, 'utf-8');
+    const parsedFacebookData = JSON.parse(facebookData);
+    
+    if (Array.isArray(parsedFacebookData)) {
+      realAdSets.push(...parsedFacebookData);
+    }
+  } catch (error) {
+    dataWarnings.push('Facebook data not available - upload CSV file');
+  }
+
+  // Validate the real data
+  if (realAdSets.length > 0) {
+    const validation = validateDashboardData(realAdSets);
+    
+    if (!validation.isValid) {
+      dataErrors.push(...validation.errors);
+      realAdSets = []; // Clear invalid data
+    }
+    
+    dataWarnings.push(...validation.warnings);
+
+    // Calculate real metrics from actual data
+    if (realAdSets.length > 0) {
+      const totalSpend = realAdSets.reduce((sum, adSet) => sum + adSet.spend, 0);
+      const totalConversions = realAdSets.reduce((sum, adSet) => sum + adSet.conversions, 0);
+      const googleAdSets = realAdSets.filter(adSet => adSet.platform === 'google');
+      const facebookAdSets = realAdSets.filter(adSet => adSet.platform === 'facebook');
+
+      realMetrics = {
+        totalSpend,
+        totalConversions,
+        averageCPA: totalConversions > 0 ? totalSpend / totalConversions : 0,
+        totalChangePercent: calculateTotalChange(realAdSets),
+        platformBreakdown: {
+          google: calculatePlatformMetrics(googleAdSets),
+          facebook: calculatePlatformMetrics(facebookAdSets)
+        }
+      };
+    }
+  }
+} catch (error) {
+  dataErrors.push('Failed to load advertising data');
+}
+
+function calculatePlatformMetrics(adSets: AdSetPerformance[]) {
+  const spend = adSets.reduce((sum, adSet) => sum + adSet.spend, 0);
+  const conversions = adSets.reduce((sum, adSet) => sum + adSet.conversions, 0);
+  return {
+    spend,
+    conversions,
+    cpa: conversions > 0 ? spend / conversions : 0
+  };
+}
+
+function calculateTotalChange(adSets: AdSetPerformance[]): number {
+  const validChanges = adSets
+    .filter(adSet => adSet.changePercent !== undefined)
+    .map(adSet => adSet.changePercent!);
+  
+  if (validChanges.length === 0) return 0;
+  
+  return validChanges.reduce((sum, change) => sum + change, 0) / validChanges.length;
+}
+
+// Check for critical alerts (only if we have real data)
+const criticalAlerts = realAdSets.filter(adSet => 
+  adSet.changePercent && adSet.changePercent > 20
+);
+
+const warningAlerts = realAdSets.filter(adSet => 
+  adSet.changePercent && adSet.changePercent > 10 && adSet.changePercent <= 20
+);
+
+// Add data loading errors as critical alerts
+if (dataErrors.length > 0) {
+  criticalAlerts.unshift(...dataErrors.map((error, index) => ({
+    id: `data_error_${index}`,
+    name: 'Data Loading Error',
+    platform: 'system' as const,
+    date: new Date().toISOString().split('T')[0],
+    spend: 0,
+    conversions: 0,
+    costPerConversion: 0,
+    changePercent: 100, // Mark as critical
+    impressions: 0,
+    clicks: 0,
+    clickThroughRate: 0,
+    conversionRate: 0
+  })));
+}
+---
+
+<Layout title="Marketing Dashboard - CPA Tracker">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- Header Section -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Marketing Dashboard</h1>
+      <p class="text-gray-600">Track your Cost Per Acquisition across Google Ads and Facebook campaigns</p>
+      <div class="mt-4 text-sm text-gray-500">
+        Last updated: {new Date().toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })}
+      </div>
+    </div>
+
+    <!-- Alerts Section -->
+    {criticalAlerts.length > 0 && (
+      <div class="mb-6 space-y-4">
+        {criticalAlerts.map(alert => (
+          <AlertBanner
+            type="critical"
+            title={`Critical CPA Increase: ${alert.name}`}
+            message={`Cost per acquisition increased by ${alert.changePercent?.toFixed(1)}% to $${alert.costPerConversion.toFixed(2)}`}
+          />
+        ))}
+      </div>
+    )}
+
+    {warningAlerts.length > 0 && (
+      <div class="mb-6 space-y-4">
+        {warningAlerts.map(alert => (
+          <AlertBanner
+            type="warning"
+            title={`CPA Increase Alert: ${alert.name}`}
+            message={`Cost per acquisition increased by ${alert.changePercent?.toFixed(1)}% to $${alert.costPerConversion.toFixed(2)}`}
+          />
+        ))}
+      </div>
+    )}
+
+    <!-- Metrics Cards -->
+    {realMetrics ? (
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <MetricsCard
+          title="Total Spend"
+          value={realMetrics.totalSpend}
+          format="currency"
+          icon="💰"
+          change={realMetrics.totalChangePercent}
+        />
+        <MetricsCard
+          title="Total Conversions"
+          value={realMetrics.totalConversions}
+          format="number"
+          icon="🎯"
+        />
+        <MetricsCard
+          title="Average CPA"
+          value={realMetrics.averageCPA}
+          format="currency"
+          icon="📊"
+          change={realMetrics.totalChangePercent}
+        />
+        <MetricsCard
+          title="Active Ad Sets"
+          value={realAdSets.length}
+          format="number"
+          icon="🚀"
+        />
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {[1, 2, 3, 4].map((index) => (
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="animate-pulse">
+              <div class="flex items-center justify-between">
+                <div class="flex-1">
+                  <div class="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                  <div class="h-8 bg-gray-300 rounded w-16 mb-2"></div>
+                  <div class="h-3 bg-gray-200 rounded w-20"></div>
+                </div>
+                <div class="w-8 h-8 bg-gray-200 rounded-lg"></div>
+              </div>
+            </div>
+            <div class="text-center mt-4 text-sm text-gray-500">
+              📊 Charts Coming Soon
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+
+    <!-- Platform Breakdown -->
+    {realMetrics ? (
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <span class="text-blue-600 mr-2">🔍</span>
+            Google Ads Performance
+          </h3>
+          <div class="space-y-3">
+            <div class="flex justify-between">
+              <span class="text-gray-600">Spend</span>
+              <span class="font-medium">${realMetrics.platformBreakdown.google.spend.toLocaleString()}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600">Conversions</span>
+              <span class="font-medium">{realMetrics.platformBreakdown.google.conversions}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600">Average CPA</span>
+              <span class="font-medium">${realMetrics.platformBreakdown.google.cpa.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <span class="text-indigo-600 mr-2">📘</span>
+            Facebook Ads Performance
+          </h3>
+          <div class="space-y-3">
+            <div class="flex justify-between">
+              <span class="text-gray-600">Spend</span>
+              <span class="font-medium">${realMetrics.platformBreakdown.facebook.spend.toLocaleString()}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600">Conversions</span>
+              <span class="font-medium">{realMetrics.platformBreakdown.facebook.conversions}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-600">Average CPA</span>
+              <span class="font-medium">${realMetrics.platformBreakdown.facebook.cpa.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <span class="text-blue-600 mr-2">🔍</span>
+            Google Ads Performance
+          </h3>
+          <div class="text-center py-8">
+            <div class="text-gray-400 text-4xl mb-4">📊</div>
+            <p class="text-gray-500 text-sm">Charts Coming Soon</p>
+            <p class="text-gray-400 text-xs mt-1">Connect Google Ads API to see data</p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <span class="text-indigo-600 mr-2">📘</span>
+            Facebook Ads Performance
+          </h3>
+          <div class="text-center py-8">
+            <div class="text-gray-400 text-4xl mb-4">📊</div>
+            <p class="text-gray-500 text-sm">Charts Coming Soon</p>
+            <p class="text-gray-400 text-xs mt-1">Upload CSV data to see metrics</p>
+          </div>
+        </div>
+      </div>
+    )}
+
+    <!-- Ad Sets Table -->
+    {realAdSets.length > 0 ? (
+      <AdSetTable adSets={realAdSets} />
+    ) : (
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h3 class="text-lg font-medium text-gray-900">Top Ad Sets by Spend</h3>
+        </div>
+        <div class="text-center py-12">
+          <div class="text-gray-400 text-6xl mb-4">📊</div>
+          <h3 class="text-lg font-medium text-gray-900 mb-2">Charts Coming Soon</h3>
+          <p class="text-gray-500 mb-4">No advertising data available yet</p>
+          <div class="space-y-2 text-sm text-gray-400">
+            <p>• Connect Google Ads API for automated sync</p>
+            <p>• Upload Facebook CSV files manually</p>
+            <p>• Real data only - no mock data allowed</p>
+          </div>
+        </div>
+      </div>
+    )}
+
+    <!-- Quick Actions -->
+    <div class="mt-8 bg-gray-50 rounded-lg p-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a
+          href="/upload"
+          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 transition-colors"
+        >
+          📤 Upload Facebook Data
+        </a>
+        <button
+          type="button"
+          class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+          onclick="alert('Google Ads sync will be implemented in the next phase')"
+        >
+          🔄 Sync Google Ads
+        </button>
+        <a
+          href="/settings"
+          class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+        >
+          ⚙️ Configure Alerts
+        </a>
+      </div>
+    </div>
+  </div>
+</Layout>

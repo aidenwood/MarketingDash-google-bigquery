@@ -1,0 +1,142 @@
+---
+export interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = "Cost-effective marketing dashboard for tracking CPA across Google Ads and Facebook" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    
+    <!-- Preload fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    
+    <!-- Meta tags for SEO -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    
+    <title>{title}</title>
+  </head>
+  <body class="h-full bg-gray-50 font-sans antialiased">
+    <div class="min-h-full flex flex-col">
+      <!-- Navigation Header -->
+      <header class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex justify-between items-center h-16">
+            <div class="flex items-center">
+              <h1 class="text-xl font-semibold text-gray-900">
+                <a href="/" class="hover:text-primary-600 transition-colors">
+                  MarketingDash
+                </a>
+              </h1>
+            </div>
+            
+            <nav class="hidden md:flex space-x-8">
+              <a href="/" class="text-gray-900 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                Dashboard
+              </a>
+              <a href="/upload" class="text-gray-500 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                Upload Data
+              </a>
+              <a href="/settings" class="text-gray-500 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                Settings
+              </a>
+            </nav>
+            
+            <!-- Mobile menu button -->
+            <div class="md:hidden">
+              <button
+                type="button"
+                class="mobile-menu-button inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+                aria-controls="mobile-menu"
+                aria-expanded="false"
+              >
+                <span class="sr-only">Open main menu</span>
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Mobile menu -->
+        <div class="md:hidden hidden" id="mobile-menu">
+          <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
+            <a href="/" class="text-gray-900 hover:text-primary-600 block px-3 py-2 rounded-md text-base font-medium">
+              Dashboard
+            </a>
+            <a href="/upload" class="text-gray-500 hover:text-primary-600 block px-3 py-2 rounded-md text-base font-medium">
+              Upload Data
+            </a>
+            <a href="/settings" class="text-gray-500 hover:text-primary-600 block px-3 py-2 rounded-md text-base font-medium">
+              Settings
+            </a>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="flex-1">
+        <slot />
+      </main>
+
+      <!-- Footer -->
+      <footer class="bg-white border-t border-gray-200 mt-auto">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          <div class="flex justify-between items-center">
+            <div class="text-sm text-gray-500">
+              © 2025 MarketingDash. Built with Astro & deployed on Netlify.
+            </div>
+            <div class="flex space-x-6">
+              <a href="/docs" class="text-sm text-gray-500 hover:text-primary-600 transition-colors">
+                Documentation
+              </a>
+              <a href="https://github.com/your-org/MarketingDash-google-bigquery" class="text-sm text-gray-500 hover:text-primary-600 transition-colors">
+                GitHub
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      // Mobile menu toggle
+      document.addEventListener('DOMContentLoaded', function() {
+        const mobileMenuButton = document.querySelector('.mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        
+        if (mobileMenuButton && mobileMenu) {
+          mobileMenuButton.addEventListener('click', function() {
+            const isHidden = mobileMenu.classList.contains('hidden');
+            if (isHidden) {
+              mobileMenu.classList.remove('hidden');
+              mobileMenuButton.setAttribute('aria-expanded', 'true');
+            } else {
+              mobileMenu.classList.add('hidden');
+              mobileMenuButton.setAttribute('aria-expanded', 'false');
+            }
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

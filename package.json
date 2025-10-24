@@ -1,0 +1,62 @@
+{
+  "name": "marketingdash-cpa-tracker",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Cost-effective marketing dashboard for tracking CPA across Google Ads and Facebook",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx,.astro",
+    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx,.astro --fix",
+    "type-check": "astro check",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@astrojs/netlify": "^5.5.3",
+    "@astrojs/node": "^8.3.4",
+    "@astrojs/tailwind": "^5.1.1",
+    "@google-cloud/bigquery": "^7.9.0",
+    "astro": "^4.15.12",
+    "chart.js": "^4.4.4",
+    "csv-parser": "^3.0.0",
+    "google-ads-api": "^12.2.0",
+    "googleapis": "^144.0.0",
+    "papaparse": "^5.4.1",
+    "tailwindcss": "^3.4.13"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@types/node": "^22.7.5",
+    "@types/papaparse": "^5.3.14",
+    "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
+    "eslint": "^9.12.0",
+    "eslint-plugin-astro": "^1.2.4",
+    "prettier": "^3.3.3",
+    "prettier-plugin-astro": "^0.14.1",
+    "typescript": "^5.6.3"
+  },
+  "keywords": [
+    "marketing",
+    "cpa",
+    "cost-per-acquisition",
+    "google-ads",
+    "facebook-ads",
+    "analytics",
+    "dashboard",
+    "astro",
+    "netlify"
+  ],
+  "author": "Marketing Engineering Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/MarketingDash-google-bigquery.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

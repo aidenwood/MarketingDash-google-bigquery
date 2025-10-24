@@ -1,0 +1,66 @@
+---
+export interface Props {
+  title: string;
+  value: string | number;
+  change?: number;
+  icon?: string;
+  format?: 'currency' | 'percentage' | 'number';
+}
+
+const { title, value, change, icon, format = 'number' } = Astro.props;
+
+function formatValue(val: string | number, fmt: string): string {
+  const numValue = typeof val === 'string' ? parseFloat(val) : val;
+  
+  switch (fmt) {
+    case 'currency':
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(numValue);
+    case 'percentage':
+      return `${numValue.toFixed(1)}%`;
+    default:
+      return numValue.toLocaleString();
+  }
+}
+
+function getChangeColor(changeValue?: number): string {
+  if (!changeValue) return 'text-gray-500';
+  return changeValue > 0 ? 'text-danger-600' : 'text-success-600';
+}
+
+function getChangeIcon(changeValue?: number): string {
+  if (!changeValue) return '';
+  return changeValue > 0 ? '↗' : '↘';
+}
+---
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
+  <div class="flex items-center justify-between">
+    <div class="flex-1">
+      <p class="text-sm font-medium text-gray-600 mb-1">{title}</p>
+      <p class="text-2xl font-semibold text-gray-900">
+        {formatValue(value, format)}
+      </p>
+      {change !== undefined && (
+        <div class={`flex items-center mt-2 text-sm ${getChangeColor(change)}`}>
+          <span class="mr-1">{getChangeIcon(change)}</span>
+          <span>
+            {Math.abs(change).toFixed(1)}% vs yesterday
+          </span>
+        </div>
+      )}
+    </div>
+    
+    {icon && (
+      <div class="flex-shrink-0">
+        <div class="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+          <span class="text-primary-600 text-lg">{icon}</span>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
