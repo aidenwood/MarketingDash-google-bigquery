@@ -1,0 +1,88 @@
+---
+import Layout from '@/layouts/Layout.astro';
+---
+
+<Layout title="Demo - CPA Chart - Marketing Dashboard">
+  <div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold tracking-tight">CPA Analysis Demo</h1>
+      <p class="text-muted-foreground mt-2">
+        Interactive demonstration of the Cost Per Acquisition area chart with sample Facebook Ads data
+      </p>
+    </div>
+
+    <!-- Demo Chart -->
+    <div id="demo-chart-root"></div>
+
+    <!-- Info -->
+    <div class="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+      <h3 class="font-medium text-blue-900 mb-2">📊 About This Chart</h3>
+      <div class="text-sm text-blue-800 space-y-2">
+        <p>This chart displays:</p>
+        <ul class="list-disc list-inside space-y-1 ml-4">
+          <li><strong>Daily CPA</strong> - Cost per acquisition for each day</li>
+          <li><strong>7-Day Rolling Average</strong> - Smoothed trend line showing average CPA over rolling 7-day periods</li>
+          <li><strong>Interactive tooltips</strong> - Hover over data points for detailed information</li>
+          <li><strong>Performance indicators</strong> - Current metrics compared to previous periods</li>
+        </ul>
+        <p class="mt-3">
+          <strong>Next steps:</strong> Go to the <a href="/upload-new" class="text-blue-600 hover:text-blue-700 underline">Upload page</a> to upload your own Facebook Ads CSV data and see real performance analytics.
+        </p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { CPAAreaChart } from '@/components/CPAAreaChart.tsx';
+  import React from 'react';
+  import { createRoot } from 'react-dom/client';
+
+  // Generate sample data for demo
+  function generateSampleData() {
+    const data = [];
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 29); // 30 days of data
+
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
+      
+      // Generate realistic CPA data with some variation
+      const baseSpend = 800 + Math.random() * 400; // $800-$1200 daily spend
+      const baseConversions = 15 + Math.random() * 10; // 15-25 conversions
+      const dailyCPA = baseSpend / baseConversions;
+      
+      // Calculate rolling average (simplified for demo)
+      let rolling7DayAvg = dailyCPA;
+      if (i >= 6) {
+        // Use a slightly smoothed version for rolling average
+        rolling7DayAvg = dailyCPA * (0.9 + Math.random() * 0.2);
+      }
+
+      data.push({
+        date: date.toISOString().split('T')[0],
+        dailyCPA: Math.round(dailyCPA * 100) / 100,
+        rolling7DayAvg: Math.round(rolling7DayAvg * 100) / 100,
+        spend: Math.round(baseSpend * 100) / 100,
+        conversions: Math.round(baseConversions)
+      });
+    }
+
+    return data;
+  }
+
+  // Mount React component with sample data
+  const container = document.getElementById('demo-chart-root');
+  if (container) {
+    const root = createRoot(container);
+    const sampleData = generateSampleData();
+    
+    root.render(React.createElement(CPAAreaChart, {
+      data: sampleData,
+      title: "Sample Facebook Ads - Cost Per Acquisition Analysis",
+      description: "30 days of sample data showing daily CPA vs 7-day rolling average"
+    }));
+  }
+</script>
