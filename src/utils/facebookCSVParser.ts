@@ -3,14 +3,20 @@ import type { CPAData } from '@/components/CPAAreaChart';
 import type { DailyMetrics } from './rollingCPA';
 
 export interface FacebookCSVRow {
-  'Ad Set Name': string;
-  'Amount Spent': string;
+  'Ad set name'?: string;
+  'Ad Set Name'?: string;
+  'Amount spent (AUD)'?: string;
+  'Amount Spent'?: string;
   'Results': string;
-  'Cost per Result': string;
+  'Cost per results'?: string;
+  'Cost per Result'?: string;
   'Impressions': string;
-  'Link Clicks': string;
-  'Reporting Starts': string;
-  'Reporting Ends': string;
+  'Link clicks'?: string;
+  'Link Clicks'?: string;
+  'Reporting starts'?: string;
+  'Reporting Starts'?: string;
+  'Reporting ends'?: string;
+  'Reporting Ends'?: string;
   [key: string]: string; // Allow for additional columns
 }
 
@@ -96,43 +102,59 @@ function processFacebookCSVData(rows: FacebookCSVRow[]): ParsedFacebookData {
     const row = rows[i];
     
     try {
-      // Validate required columns
-      const requiredColumns = ['Ad Set Name', 'Amount Spent', 'Results', 'Cost per Result'];
-      const missingColumns = requiredColumns.filter(col => !row[col] || row[col].trim() === '');
-      
-      if (missingColumns.length > 0) {
-        errors.push(`Row ${i + 2}: Missing required columns: ${missingColumns.join(', ')}`);
+      // Get values with fallbacks for different column name formats
+      const adSetName = row['Ad set name'] || row['Ad Set Name'] || '';
+      const amountSpent = row['Amount spent (AUD)'] || row['Amount Spent'] || '';
+      const results = row['Results'] || '0';
+      const costPerResult = row['Cost per results'] || row['Cost per Result'] || '';
+      const reportingStart = row['Reporting starts'] || row['Reporting Starts'] || '';
+      const reportingEnd = row['Reporting ends'] || row['Reporting Ends'] || '';
+
+      // Skip empty rows or rows without ad set name
+      if (!adSetName || adSetName.trim() === '') {
+        continue;
+      }
+
+      // Skip inactive or non-delivering ad sets
+      const adSetDelivery = row['Ad set delivery'] || '';
+      if (adSetDelivery === 'inactive' || adSetDelivery === 'not_delivering') {
         continue;
       }
 
       // Parse numeric values
-      const spend = parseFloat(row['Amount Spent'].replace(/[$,]/g, ''));
-      const conversions = parseFloat(row['Results'] || '0');
-      const costPerResult = parseFloat(row['Cost per Result'].replace(/[$,]/g, ''));
+      const spend = parseFloat(amountSpent.replace(/[$,]/g, ''));
+      const conversions = parseFloat(results || '0');
+      const costPerResultValue = parseFloat(costPerResult.replace(/[$,]/g, ''));
 
       // Validate numeric values
       if (isNaN(spend) || spend < 0) {
-        errors.push(`Row ${i + 2}: Invalid spend amount: ${row['Amount Spent']}`);
+        errors.push(`Row ${i + 2}: Invalid spend amount: ${amountSpent}`);
         continue;
       }
 
+      // Allow 0 conversions (some ads might have spend but no conversions)
       if (isNaN(conversions) || conversions < 0) {
-        errors.push(`Row ${i + 2}: Invalid results count: ${row['Results']}`);
+        errors.push(`Row ${i + 2}: Invalid results count: ${results}`);
         continue;
       }
 
-      // Validate CPA calculation
-      const calculatedCPA = conversions > 0 ? spend / conversions : 0;
-      if (!isNaN(costPerResult) && Math.abs(calculatedCPA - costPerResult) > 0.01 && conversions > 0) {
-        errors.push(`Row ${i + 2}: CPA calculation mismatch. Expected: ${calculatedCPA.toFixed(2)}, Got: ${costPerResult.toFixed(2)}`);
+      // Skip rows with no spend (inactive ads)
+      if (spend === 0) {
+        continue;
       }
 
-      // Determine date - Facebook can export different date formats
+      // Validate CPA calculation (only if we have conversions)
+      const calculatedCPA = conversions > 0 ? spend / conversions : 0;
+      if (!isNaN(costPerResultValue) && Math.abs(calculatedCPA - costPerResultValue) > 0.01 && conversions > 0) {
+        errors.push(`Row ${i + 2}: CPA calculation mismatch. Expected: ${calculatedCPA.toFixed(2)}, Got: ${costPerResultValue.toFixed(2)}`);
+      }
+
+      // Determine date - use reporting start date
       let reportingDate = '';
-      if (row['Reporting Starts']) {
-        reportingDate = normalizeDate(row['Reporting Starts']);
-      } else if (row['Reporting Ends']) {
-        reportingDate = normalizeDate(row['Reporting Ends']);
+      if (reportingStart) {
+        reportingDate = normalizeDate(reportingStart);
+      } else if (reportingEnd) {
+        reportingDate = normalizeDate(reportingEnd);
       } else {
         // Default to yesterday if no date provided
         const yesterday = new Date();
@@ -145,8 +167,8 @@ function processFacebookCSVData(rows: FacebookCSVRow[]): ParsedFacebookData {
       const metrics: DailyMetrics = {
         date: reportingDate,
         platform: 'facebook',
-        adSetId: generateAdSetId(row['Ad Set Name'], i),
-        adSetName: row['Ad Set Name'].trim(),
+        adSetId: generateAdSetId(adSetName, i),
+        adSetName: adSetName.trim(),
         spend: spend,
         conversions: conversions,
         costPerConversion: conversions > 0 ? spend / conversions : 0
@@ -286,28 +308,29 @@ function generateAdSetId(adSetName: string, index: number): string {
  */
 export function validateFacebookCSVHeaders(headers: string[]): { valid: boolean; errors: string[] } {
   const requiredHeaders = [
-    'Ad Set Name',
-    'Amount Spent', 
-    'Results',
-    'Cost per Result'
+    { primary: 'Ad set name', alternatives: ['Ad Set Name'] },
+    { primary: 'Amount spent (AUD)', alternatives: ['Amount Spent', 'Amount spent', 'Spend'] },
+    { primary: 'Results', alternatives: [] },
   ];
 
   const errors: string[] = [];
   const normalizedHeaders = headers.map(h => h.trim());
 
   for (const required of requiredHeaders) {
-    if (!normalizedHeaders.includes(required)) {
-      errors.push(`Missing required column: "${required}"`);
+    const allOptions = [required.primary, ...required.alternatives];
+    const found = allOptions.some(option => normalizedHeaders.includes(option));
+    
+    if (!found) {
+      errors.push(`Missing required column: "${required.primary}" (or alternatives: ${required.alternatives.join(', ')})`);
     }
   }
 
-  // Check for common variations
-  if (!normalizedHeaders.includes('Amount Spent')) {
-    const variations = ['Spend', 'Amount Spent (USD)', 'Total Spent'];
-    const found = variations.find(v => normalizedHeaders.includes(v));
-    if (found) {
-      errors.push(`Found "${found}" instead of "Amount Spent". Please use standard Facebook export format.`);
-    }
+  // Check for reporting dates
+  const dateColumns = ['Reporting starts', 'Reporting Starts', 'Reporting ends', 'Reporting Ends'];
+  const hasDateColumn = dateColumns.some(col => normalizedHeaders.includes(col));
+  
+  if (!hasDateColumn) {
+    errors.push('Missing date columns. Expected "Reporting starts" or "Reporting ends"');
   }
 
   return {
